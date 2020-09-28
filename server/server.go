@@ -9,16 +9,25 @@ import (
 	"github.com/hashicorp/go-hclog"
 )
 
-// Server struct defines the server
-type Server struct {
+// server struct defines the server
+type server struct {
 	logger            hclog.Logger
 	router            *mux.Router
 	repositoryService service.RepositoryService
+	Server
+}
+
+// Server interfaces defines the server contract
+type Server interface {
+	routes()
+	middleware(http.Handler) http.Handler
+	ServeHTTP(http.ResponseWriter, *http.Request)
+	respond(http.ResponseWriter, *http.Request, interface{}, int)
 }
 
 // New generates a new server
-func New(router *mux.Router, logger hclog.Logger, repositoryService service.RepositoryService) *Server {
-	srv := &Server{router: router, logger: logger, repositoryService: repositoryService}
+func New(router *mux.Router, logger hclog.Logger, repositoryService service.RepositoryService) Server {
+	srv := &server{router: router, logger: logger, repositoryService: repositoryService}
 	srv.routes()
 	return srv
 }
@@ -28,7 +37,7 @@ type GenericError struct {
 	Message string `json:"message"`
 }
 
-func (s *Server) handlerShortenerGet() http.HandlerFunc {
+func (s *server) handlerShortenerGet() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s.logger.Info("Getting ShortenURL")
 		vars := mux.Vars(r)
@@ -46,7 +55,7 @@ func (s *Server) handlerShortenerGet() http.HandlerFunc {
 	}
 }
 
-func (s *Server) handlerShortenerCreate() http.HandlerFunc {
+func (s *server) handlerShortenerCreate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s.logger.Info("Creating ShortenURL")
 		us := s.repositoryService.NewUS()
@@ -66,7 +75,7 @@ func (s *Server) handlerShortenerCreate() http.HandlerFunc {
 	}
 }
 
-func (s *Server) handlerShortenerDelete() http.HandlerFunc {
+func (s *server) handlerShortenerDelete() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s.logger.Info("Deleting ShortenURL")
 		vars := mux.Vars(r)
@@ -83,29 +92,25 @@ func (s *Server) handlerShortenerDelete() http.HandlerFunc {
 	}
 }
 
-func (s *Server) commonMiddleware(next http.Handler) http.Handler {
+func (s *server) commonMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		next.ServeHTTP(w, r)
 	})
 }
 
-func (s *Server) routes() {
+func (s *server) routes() {
 	s.router.Use(s.commonMiddleware)
 	s.router.HandleFunc("/", s.handlerShortenerCreate()).Methods(http.MethodPost)
 	s.router.HandleFunc("/{code}", s.handlerShortenerGet()).Methods(http.MethodGet)
 	s.router.HandleFunc("/{code}", s.handlerShortenerDelete()).Methods(http.MethodDelete)
 }
 
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.router.ServeHTTP(w, r)
 }
 
-func (s *Server) decode(w http.ResponseWriter, r *http.Request, v interface{}) error {
-	return json.NewDecoder(r.Body).Decode(v)
-}
-
-func (s *Server) respond(w http.ResponseWriter, r *http.Request, data interface{}, status int) {
+func (s *server) respond(w http.ResponseWriter, r *http.Request, data interface{}, status int) {
 	w.WriteHeader(status)
 	if data != nil {
 		err := json.NewEncoder(w).Encode(data)

@@ -28,7 +28,7 @@ type shortenURLFixture struct {
 	StatusCode int
 }
 
-func performRequest(method, path string, requestPayload []byte, server *server.Server) (*httptest.ResponseRecorder, *http.Request) {
+func performRequest(method, path string, requestPayload []byte, server server.Server) (*httptest.ResponseRecorder, *http.Request) {
 	fmt.Println(string(requestPayload))
 	req := httptest.NewRequest(method, path, bytes.NewBuffer(requestPayload))
 	w := httptest.NewRecorder()
@@ -36,7 +36,7 @@ func performRequest(method, path string, requestPayload []byte, server *server.S
 	return w, req
 }
 
-func setupServer(t *testing.T) (*server.Server, *ent.Client) {
+func setupServer(t *testing.T) (server.Server, *ent.Client) {
 	logger := hclog.New(&hclog.LoggerOptions{
 		Name:  "Shortener",
 		Level: hclog.LevelFromString("DEBUG"),

@@ -45,6 +45,7 @@ func run() error {
 	svc := service.New(rps, logger)
 
 	srv := server.New(mux.NewRouter(), logger, svc)
+
 	s := &http.Server{
 		Handler:      srv,
 		Addr:         ":1337",
